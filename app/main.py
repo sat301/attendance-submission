@@ -1,18 +1,4 @@
-"""
-Employee Attendance & Analytics API  (FastAPI + MongoDB)
-
-Run:  uvicorn app.main:app --port 8000
-Env:  MONGO_URI, MONGO_DB   (a local .env is loaded for convenience; real environment variables win)
-
-Layout of this single file
-  1. configuration, Mongo client, index definitions
-  2. generic helpers (time conversion, rounding, validation)
-  3. business rules R1-R5 (pure functions, no I/O)
-  4. request models
-  5. endpoints: system / employees / attendance
-  6. analytics pipeline builders + endpoints
-  7. explain endpoint (re-uses the very same builders as the real endpoints)
-"""
+"""FastAPI routes and MongoDB queries for employee attendance."""
 import calendar
 import json
 import logging
@@ -41,8 +27,7 @@ load_dotenv()  # override=False (default): real environment variables take prior
 
 log = logging.getLogger("attendance")
 
-# tz_aware=True: PyMongo hands back timezone-aware UTC datetimes instead of naive ones, so
-# arithmetic between stored instants and our own aware datetimes can never mix the two kinds.
+# Keep MongoDB datetimes timezone-aware so time comparisons stay consistent.
 client = MongoClient(
     os.getenv("MONGO_URI", "mongodb://localhost:27017"),
     tz_aware=True,
@@ -61,7 +46,7 @@ NON_PRESENCE = ("ABSENT", "LEAVE")
 Status = Literal["PRESENT", "ABSENT", "LEAVE", "WFH", "ON_DUTY"]
 PresenceStatus = Literal["PRESENT", "WFH", "ON_DUTY"]
 
-# (collection, keys, options). Every index exists for a reason, see DECISIONS.md.
+# (collection, keys, options). Index choices are explained in DECISIONS.md.
 INDEXES = [
     ("employees", [("emp_code", 1)], {"unique": True, "name": "uniq_emp_code"}),
     ("employees", [("department", 1), ("emp_code", 1)], {"name": "dept_emp_code"}),
@@ -811,3 +796,4 @@ def explain_endpoint(
     # explain output can contain BSON types (Timestamp, Binary, ...): convert to plain JSON
     safe = json.loads(json_util.dumps(raw, json_options=json_util.RELAXED_JSON_OPTIONS))
     return {"endpoint": endpoint, "collection": coll, "explain": safe}
+
